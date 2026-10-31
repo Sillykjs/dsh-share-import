@@ -1,0 +1,34 @@
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Editors
+.vscode/
+.idea/
+*.iml
+
+# 依赖（由 DSH profile 安装，不在本仓库内）
+node_modules/
+.pnpm-store/
+
+# 构建 / 打包产物
+dist/
+build/
+out/
+*.tgz
+
+# 日志与临时文件
+*.log
+logs/
+npm-debug.log*
+.tmp/
+tmp/
+
+# 本地环境与密钥（本项目零凭据，正常不应出现）
+.env
+.env.*
+!.env.example
+*.pem
+*.key
