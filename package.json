@@ -30,5 +30,14 @@
     "deepseek",
     "import",
     "session"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sillykjs/dsh-share-import.git"
+  },
+  "homepage": "https://github.com/Sillykjs/dsh-share-import#readme",
+  "bugs": {
+    "url": "https://github.com/Sillykjs/dsh-share-import/issues"
+  },
+  "author": "Sillykjs"
 }
