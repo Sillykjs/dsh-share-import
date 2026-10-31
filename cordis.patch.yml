@@ -1,0 +1,6 @@
+# dsh-share-import: import public chat.deepseek.com share links into DSH as
+# static (non-generating) sessions in a chosen workspace.
+# Inserted by `dsh plugin add` (bundle patch).
+- insert:
+    - id: dsh-share-import
+      name: 'dsh-share-import'
