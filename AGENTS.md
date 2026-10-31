@@ -17,7 +17,8 @@
 3. **host 半是 Cordis 插件**：`export const name`（`lib/index.js:45`）、`export const inject = ['webServer']`（`lib/index.js:48`）、`export function apply(ctx)`（`lib/index.js:170`）。除 `webServer` 外所有服务都用 `ctx.get()` 软读取；服务缺失时返回稳定错误码，不要抛到 500。
 4. **导入语义不可漂移**：只写历史事件；不要加自动首轮、不要写 `plan/mode` 或 `sandbox/mode`（用户 m00277 明确撤销了自动规划/自动只读，M4 未做）。
 5. **不要把移植文件重写成"更通用的抽象"**。`formats.js` / `persistence.js` 的价值是跟上上游契约（句柄时代与 append 时代两种后端、格式版本重试），只在明确为同步上游时改。
-6. 用户可见文案走 `translate()`：新字符串同时加进 `DICT_ZH` 与 `DICT_EN`（`lib/client.js`），两边的键必须一一对应。
+6. **不要在仓库里写真实分享链接、个人绝对路径或账号信息**：测试用合成 id（如 `abc123def456`），联网断言通过 `DSH_SHARE_LINK` 传入。
+7. 用户可见文案走 `translate()`：新字符串同时加进 `DICT_ZH` 与 `DICT_EN`（`lib/client.js`），两边的键必须一一对应。
 
 ## 目录与关键位置
 
@@ -33,7 +34,7 @@
 | `lib/events.js:257` `buildStaticSessionEvents` | 生成 `session/title` → 每轮 `turn/start → step/start → user/message → assistant/message → step/end → turn/end` → `session/end-seed` |
 | `lib/formats.js` / `lib/persistence.js` | 上游移植：格式版本探测、写句柄/旧式 append、写完读回校验 |
 | `lib/client.js:25` / `:27` / `:525` | client 半：`NS`、`PANEL_ID = 'share-import'`、`apply`（挂 `settings.section` + `sidebar.panellist` + `main` 三个槽） |
-| `test/smoke.mjs` | 纯逻辑自测：链接解析、真实拉取、切片、事件序列不变量 |
+| `test/smoke.mjs` | 纯逻辑自测（默认不联网）；设 `DSH_SHARE_LINK` 或传参才做真实拉取 |
 | `PLAN.md` | 设计记录（R3）。改语义先改这里，再改代码 |
 | `docs/*.png` | 设置页/开关截图存档 |
 
@@ -57,8 +58,8 @@
 node --check lib/index.js && node --check lib/share.js && node --check lib/events.js \
   && node --check lib/formats.js && node --check lib/persistence.js && node --check lib/client.js
 
-node test/smoke.mjs                                  # 真实访问 chat.deepseek.com，需联网
-node test/smoke.mjs https://chat.deepseek.com/share/xxxx
+node test/smoke.mjs                                  # 纯逻辑，不联网
+DSH_SHARE_LINK='https://chat.deepseek.com/share/…' node test/smoke.mjs   # 联网部分
 
 dsh plugin --profile web add link:"$PWD"             # 安装/重链接（会自动写 dsh.profile.bundles）
 ```
@@ -104,7 +105,7 @@ rm -rf /tmp/dsh-verify-home
 
 ## 收尾检查清单
 
-- [ ] 六个 `lib/*.js` 全部 `node --check` 通过；`node test/smoke.mjs` 打印 `ALL CHECKS PASSED`。
+- [ ] 六个 `lib/*.js` 全部 `node --check` 通过；`node test/smoke.mjs` 打印 `ALL CHECKS PASSED`（联网断言可选，需自备链接）。
 - [ ] 改了 `lib/client.js` 或 UI 行为：在隔离实例里用 Playwright 跑一遍（入口可见、预览、导入、开关、刷新后仍存在），确认 console 无本插件相关错误。
 - [ ] 改了语义/使用方式：同步 `README.md`「使用」节与 `PLAN.md`「12. 实现状态」。
 - [ ] 线上核对：`/plugins/events` 里本包 rev 已变化，抓下的 bundle 含新字符串。

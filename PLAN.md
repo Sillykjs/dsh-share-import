@@ -46,7 +46,7 @@ session/end-seed
 
 ## 5. 插件结构
 
-开发目录：`/home/sjk/projects/dsh-share-import/`（ESM，构建产物 `lib/`）。安装 `dsh plugin add link:/home/sjk/projects/dsh-share-import`（link 包不自动构建）。
+开发目录：本仓库根目录（ESM，`lib/` 即产物）。安装 `dsh plugin add link:"$PWD"`（link 包不自动构建）。
 
 ```
 package.json          type:module, exports{.,./client,./package.json},

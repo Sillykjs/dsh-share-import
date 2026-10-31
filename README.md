@@ -55,14 +55,15 @@ lib/events.js       消息 → v4 会话事件（静态导入变体）
 lib/formats.js      会话格式版本探测与 header 构造   ← 移植自 deepseek-web-import
 lib/persistence.js  写会话 + 读回校验的兼容封装       ← 移植自 deepseek-web-import
 lib/client.js       client bundle：侧边栏导航入口（sidebar.panellist）+ 主面板页（main）+ 设置分区（图标为宿主固定映射，插件内做了行级重绘）
-test/smoke.mjs      纯逻辑 + 真实分享的冒烟自测
+test/smoke.mjs      冒烟自测（纯逻辑默认跑，联网部分需自备分享链接）
 ```
 
 ## 开发与自测
 
 ```bash
 node --check lib/*.js
-node test/smoke.mjs          # 解析/事件序列断言 + 真实拉取一次分享
+node test/smoke.mjs                        # 纯逻辑断言（不联网）
+DSH_SHARE_LINK='https://chat.deepseek.com/share/…' node test/smoke.mjs   # 追加真实拉取
 ```
 
 隔离实例（不影响正在运行的 web 进程）：
