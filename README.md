@@ -1,84 +1,202 @@
 # dsh-share-import
 
-把一个**公开对话分享链接**导入成 DSH 里的一个会话，目前支持两种来源：
+[![CI](https://github.com/Sillykjs/dsh-share-import/actions/workflows/ci.yml/badge.svg)](https://github.com/Sillykjs/dsh-share-import/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-brightgreen.svg)](#requirements)
 
-- **两种来源**：DeepSeek `https://chat.deepseek.com/share/<id>`，或豆包（Doubao）`https://www.doubao.com/thread/<id>`（也接受不带 `www` 的 `https://doubao.com/thread/<id>`）。
-- **零凭据**：DeepSeek 走公开分享接口 `https://chat.deepseek.com/api/v0/share/content?share_id=…`；豆包先走公开 JSON 快照接口（普通 ID `POST /alice/message/share/get`，`x` 开头的移动端分享 `POST /im/message/share/get`），拿不到再退回分享页 SSR HTML；都不需要登录、不需要 token、不需要浏览器。只有页面自己声明懒加载、且 JSON 快照也取不到时才报 `SHARE_LAZY`，不静默截断。
-- **可选工作区**：导入前从当前实例的工作区列表里挑一个，会话落在该工作区的路径下。
-- **静止导入**：只写历史事件，不发消息、不开 turn。打开后就是一段已完成对话；你之后接着提问时，这段历史自然成为上下文。
+Import a **public chat share link** into [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/dsh) as a
+real, resumable session inside a workspace you pick. Supported sources:
 
-## 安装
+- **DeepSeek** — `https://chat.deepseek.com/share/<id>`
+- **Doubao (豆包)** — `https://www.doubao.com/thread/<id>` (also without `www`)
+
+The imported conversation is **history only**: no message is sent, nothing is generated, no turn is left
+open. Open the session and it is already a finished conversation — your next prompt simply continues from
+that history.
+
+[中文说明](README.zh-CN.md)
+
+## Features
+
+- **Zero credentials.** DeepSeek is read through its public share endpoint
+  (`https://chat.deepseek.com/api/v0/share/content?share_id=…`). Doubao is read through its public JSON
+  snapshot endpoints (regular ids via `POST /alice/message/share/get`, mobile `x…` ids via
+  `POST /im/message/share/get`), falling back to the server-rendered share page. No login, no token, no
+  headless browser.
+- **Pick the target workspace.** The panel lists the workspaces of your DSH instance and writes the session
+  into the one you choose.
+- **Static import.** Writes a v4 session event log directly: `session/title → turn/start → step/start →
+  user/message → assistant/message → step/end → turn/end → session/end-seed`. Nothing is scheduled.
+- **Duplicate guard.** Re-importing the same share is blocked by default (`ALREADY_IMPORTED`), with an
+  explicit "import as a new session anyway" path in the panel.
+- **Bilingual UI.** English and Chinese strings follow the DSH UI language.
+- **Optional sidebar entry.** A switch in Settings keeps the nav entry visible or hidden; the state lives in
+  `localStorage` of the current browser.
+- **Honest limits.** Doubao shares import text only; images and videos have no textual body and become a
+  single placeholder line. A share that the page itself declares lazy-loaded is reported as `SHARE_LAZY`
+  instead of importing a truncated conversation.
+
+## Screenshot
+
+The import panel, opened from the sidebar entry or from Settings → **Share import**:
+
+![Import panel](https://raw.githubusercontent.com/Sillykjs/dsh-share-import/main/docs/panel.png)
+
+## Requirements
+
+- DSH **0.2.1-rc.2** (the version this plugin is written and tested against) with the `web` profile.
+- Node.js **≥ 20** on the machine that runs `dsh web`.
+- A public share link that is readable without logging in. Private/expired shares cannot be imported.
+
+The host half uses DSH services that are not a stable public API; a DSH upgrade may require an update here.
+
+## Install
+
+### From GitHub (recommended)
 
 ```bash
-# 本地开发（在仓库目录里执行）
-dsh plugin --profile web add link:"$PWD"
+dsh plugin --profile web add github:Sillykjs/dsh-share-import
+```
 
-# 发布到 npm 之后
+`dsh plugin` forwards its arguments to `pnpm add` inside the profile, so any pnpm-accepted specifier works:
+
+```bash
+# pinned tag / commit
+dsh plugin --profile web add github:Sillykjs/dsh-share-import#v0.2.0
+# plain git URL
+dsh plugin --profile web add git+https://github.com/Sillykjs/dsh-share-import.git
+```
+
+From npm (once published):
+
+```bash
 dsh plugin --profile web add dsh-share-import
 ```
 
-`dsh plugin add` 会自动把 `dsh-share-import` 写进 profile 的 `dsh.profile.bundles`；`cordis.patch.yml` 里的 `insert` 负责把插件挂上。装完**刷新页面**即可看到 client 半（bundle 随页面加载更新）；**host 半的改动要重启承载进程**（`dsh web` / `dshweb.service`）才生效——DSH 0.2.1-rc.2 没有进程内重载插件代码的入口，`patchReload: live` 不重新执行已加载的 host 模块。
+### From a local checkout
 
-## 使用
+```bash
+git clone https://github.com/Sillykjs/dsh-share-import.git
+cd dsh-share-import
+dsh plugin --profile web add link:"$PWD"
+```
 
-1. 侧边栏「全局面板」导航区点 **分享导入**（第三个入口，下载箭头图标），主区域打开导入面板；也可从设置（账号菜单 → Settings / 设置 → **分享导入**，下载箭头图标）进入同一个表单。
-2. 设置页顶部的开关 **在导航区显示入口** 控制侧边栏是否出现该入口（默认开）。开关状态存在当前浏览器的 localStorage（键 `dsh-share-import:show-nav`）；关掉后设置页入口仍在，可随时改回来。
-3. 粘贴分享链接（`https://chat.deepseek.com/share/…` 或 `https://www.doubao.com/thread/…`），选工作区。
-4. **预览** 可先确认标题、轮数、首末问题；确认后 **导入会话**。
-5. 成功后面板显示新会话 id；侧边栏会自动刷新，标题即为该对话的首个问题。面板右上角 **回到对话** 退回当前会话。
+`dsh plugin add` also appends `dsh-share-import` to the profile's `dsh.profile.bundles`; the `insert` in
+[`cordis.patch.yml`](cordis.patch.yml) mounts the plugin. Then:
 
-同一个分享第二次导入默认会被拦下（`ALREADY_IMPORTED`），面板会把按钮换成「作为新会话再导一次」，需要重复导入时点它即可。
+- **Client half** — just refresh the page (the browser bundle is re-served; the host picks the new bundle
+  up within ~500 ms).
+- **Host half** — **restart the process that runs `dsh web`**. DSH 0.2.1-rc.2 has no in-process code reload
+  for host plugin modules, so editing `lib/*.js` and refreshing does nothing until the restart.
 
-豆包分享只导入文字问答：其中的图片和视频不会进会话。
+## Usage
 
-## 语义与边界
+1. Sidebar → **Share import** (third entry in the global nav, download icon). The same form is reachable
+   from Settings → **Share import** (account menu → Settings).
+2. The switch **Show the entry in the sidebar nav** decides whether the sidebar entry appears (on by
+   default; Settings stays reachable either way). The value is stored in `localStorage` under
+   `dsh-share-import:show-nav`.
+3. Paste a share link and pick a workspace.
+4. **Preview** shows the title, number of rounds and the first/last question; then **Import session**.
+5. The panel shows the new session id; the sidebar refreshes itself and the title becomes the first
+   question of the conversation. **Back to chat** returns to the current session.
 
-| 项 | 行为 |
+A second import of the same share is blocked by default; the panel replaces the button with
+"Import as a new session anyway" when you really want a duplicate.
+
+## What gets imported
+
+| Item | Behaviour |
 |---|---|
-| 导入内容 | 只要问答正文（用户提问 + 助手回答）。思考过程、网页检索结果、打开过的页面、引用标记都不进会话。 |
-| 豆包分享 | 先调公开 JSON 快照接口解析（普通 ID `/alice/message/share/get`，`x` 开头的移动端分享 `/im/message/share/get`），失败再退回分享页 SSR HTML 的 `data-fn-args`（`share_info` + `message_snapshot`）。只导入文字块（`block_type 10000`）；图片（`2074`）和视频/富媒体（`10050`）没有正文，不进会话——若一条消息只有媒体，会以一行占位说明保留（`（这条消息在豆包网页端只有图片或视频，没有文字）`）。页面声明懒加载且 JSON 快照也取不到时，报 `SHARE_LAZY`，不导入残缺会话。 |
-| 末尾悬空提问 | 若最后一条是「问而无答」，该提问会被丢弃，保证会话里没有未闭合的 turn。 |
-| 生成 | 不调用 `session.prompt`，所以导入完不会自动跑、也不会显示「生成中」。 |
-| 沙箱/规划模式 | 不自动设置。会话沿用你当前的默认访问模式；需要只读/计划模式请自行切换。 |
-| 标题 | 取首个用户提问，超过 80 字节按 UTF-8 边界截断。 |
-| 去重记录 | `$DSH_HOME/share-import/index.json`，键为 `source:id`（`deepseek:<id>` / `doubao:<id>`），值为 `{sessionId,title,importedAt}`。 |
-| 会话文件 | `$DSH_HOME/sessions/<工作区编码>/<sessionId>/session.v4.jsonl.zstd`，由 `sessionPersistence` 写入并读回校验。 |
+| Content | Question/answer prose only. Reasoning traces, web-search results, opened pages and citation markers are dropped. |
+| DeepSeek shares | Public JSON share endpoint → message fragments (`REQUEST` / `RESPONSE`). |
+| Doubao shares | Public JSON snapshot first (regular ids `/alice/message/share/get`, `x…` mobile ids `/im/message/share/get`), then the share page's SSR `data-fn-args` payload (`share_info` + `message_snapshot`). Only text blocks (`block_type 10000`) become messages; images (`2074`) and rich media/video (`10050`) have no text, so a message that is *only* media becomes one placeholder line (`（这条消息在豆包网页端只有图片或视频，没有文字）`). If the page declares lazy loading and the snapshot has no messages, the import fails with `SHARE_LAZY` instead of writing a partial session. |
+| Trailing question without an answer | Dropped, so no turn is left open. |
+| Title | First user question, truncated to 80 bytes on a UTF-8 boundary. Doubao shares that start with an assistant message use the share title instead. |
+| Generation | Nothing is generated. The imported turn is already complete. |
+| Sandbox / plan mode | Not touched. The session uses your current default access mode. |
+| Dedup journal | `$DSH_HOME/share-import/index.json`, keyed by `source:id` (`deepseek:<id>` / `doubao:<id>`), value `{sessionId,title,importedAt}`. |
+| Session file | `$DSH_HOME/sessions/<workspace>/<sessionId>/session.v4.jsonl.zstd`, written by `sessionPersistence` and read back for verification. |
 
-## 错误码
+## Error codes
 
-`SHARE_LINK_INVALID` · `SHARE_NOT_FOUND` · `SHARE_FETCH_FAILED` · `SHARE_MALFORMED` · `SHARE_EMPTY` · `SHARE_LAZY` ·
-`ALREADY_IMPORTED` · `WORKSPACE_REQUIRED` · `WORKSPACE_UNKNOWN` · `WORKSPACES_UNAVAILABLE` ·
+`SHARE_LINK_INVALID` · `SHARE_NOT_FOUND` · `SHARE_FETCH_FAILED` · `SHARE_MALFORMED` · `SHARE_EMPTY` ·
+`SHARE_LAZY` · `ALREADY_IMPORTED` · `WORKSPACE_REQUIRED` · `WORKSPACE_UNKNOWN` · `WORKSPACES_UNAVAILABLE` ·
 `PERSISTENCE_UNAVAILABLE` · `WRITE_FAILED` · `VERIFY_FAILED` · `INTERNAL`
 
-## 结构
+## Privacy and security
+
+- The plugin contacts only the two public share domains (`chat.deepseek.com`, `www.doubao.com`) with plain
+  anonymous GET/POST requests. It never reads cookies, tokens or DSH credentials.
+- It writes exactly two things: the v4 session under the chosen workspace, and the dedup journal above.
+  No telemetry, no background requests, no analytics.
+- The URLs it fetches are built from validated ids only; redirects are refused (`redirect: 'error'`) and
+  response bodies are size-capped.
+- Imported content is whatever the share contains — treat it as untrusted text, exactly like a pasted
+  conversation.
+
+## How it works
+
+```text
+public share link
+  → POST /__dsh-share-import/preview   validate → fetch → normalize → importableMessages → completeConversation
+  → POST /__dsh-share-import/import    writeVerifiedSession(…, buildStaticSessionEvents) → warm projection cache
+                                       → workspace.attachSession(id) (retries) → recordImport
+  → client calls sessions.refresh()    sidebar shows the new session
+```
+
+Three POST routes are registered on the DSH web server (`/__dsh-share-import/{workspaces,preview,import}`);
+the client bundle calls them through the normal page fetch. Event invariants are asserted by the smoke
+test: `seq` contiguous from 0, `time` non-decreasing, `step/start` before the surface events it carries,
+`surfaceOp` only on surface types, the last event is `session/end-seed`, and no turn is left open.
 
 ```
-lib/index.js        host 半：三条 POST 路由（workspaces/preview/import）、去重、写会话、挂工作区、预热投影缓存
-lib/share.js        双来源链接解析、取内容（DeepSeek JSON 接口 / 豆包 JSON 快照与 HTML 兜底）、分发到对应读者
-lib/doubao.js       豆包分享解析：JSON 快照（x 分享的 im 路由、消息块、秒级时间戳）与 SSR data-fn-args 两种读者 → 问答
-lib/errors.js       跨读者共用的 ShareError（share.js 再导出）
-lib/events.js       消息 → v4 会话事件（静态导入变体）
-lib/formats.js      会话格式版本探测与 header 构造   ← 移植自 deepseek-web-import
-lib/persistence.js  写会话 + 读回校验的兼容封装       ← 移植自 deepseek-web-import
-lib/client.js       client bundle：侧边栏导航入口（sidebar.panellist）+ 主面板页（main）+ 设置分区（图标为宿主固定映射，插件内做了行级重绘）
-test/smoke.mjs      冒烟自测（纯逻辑默认跑，联网部分需自备分享链接）
+lib/index.js        host half: routes, dedup, session write, workspace attach, projection warm-up
+lib/share.js        link parsing for both sources, GET text / POST JSON transport, dispatch to readers
+lib/doubao.js       Doubao readers: JSON snapshot (x… im route, message blocks, second-precision stamps)
+                    and the SSR data-fn-args payload
+lib/errors.js       ShareError shared by both readers (re-exported by share.js)
+lib/events.js       messages → v4 session events (static-import variant)
+lib/formats.js      session format detection / header construction      ← ported, see NOTICE.md
+lib/persistence.js  write + read-back verification                      ← ported, see NOTICE.md
+lib/client.js       client bundle: sidebar nav entry + main panel + settings section
+test/smoke.mjs      offline assertions by default; real fetch only with a link
 ```
 
-## 开发与自测
+## Development
 
 ```bash
-node --check lib/*.js
-node test/smoke.mjs                        # 纯逻辑断言（不联网）
-DSH_SHARE_LINK='https://chat.deepseek.com/share/…' node test/smoke.mjs   # 追加真实拉取（也接受豆包 thread 链接）
+node --check lib/index.js lib/share.js lib/doubao.js lib/errors.js lib/events.js \
+  && node --check lib/formats.js lib/persistence.js lib/client.js
+node test/smoke.mjs                                  # offline, no network
+DSH_SHARE_LINK='https://chat.deepseek.com/share/…' node test/smoke.mjs   # adds a real fetch (Doubao links too)
 ```
 
-隔离实例（不影响正在运行的 web 进程）：
+Isolated instance (does not touch the running web process):
 
 ```bash
-DSH_HOME=/tmp/dsh-si-home dsh plugin --profile web add link:$PWD
+DSH_HOME=/tmp/dsh-si-home dsh plugin --profile web add link:"$PWD"
 DSH_HOME=/tmp/dsh-si-home dsh --profile web --host 127.0.0.1 --port 3099 --no-open
 ```
 
-## 许可与归属
+The project has **no build step and no runtime dependencies**: `lib/client.js` is the browser bundle as-is,
+and the host half is plain ESM loaded by Cordis. Keep it that way (see [AGENTS.md](AGENTS.md) for the full
+maintainer notes).
 
-MIT。`lib/formats.js`、`lib/persistence.js` 移植自 [deepseek-web-import](https://www.npmjs.com/package/deepseek-web-import) v0.2.1（Copyright (c) 2026 wpc0323, MIT），文件头保留归属说明；其余为本插件自写。
+## Troubleshooting
+
+| Symptom | Cause / fix |
+|---|---|
+| Nav entry or panel missing after install | Refresh the page; confirm the profile installed (`dsh plugin --profile web why dsh-share-import`). A bare `/plugins/dsh-share-import/client.js` (no `?rev=`) is *supposed* to 404 — use the `?rev=` URL or the Plugins event stream to check the served bundle. |
+| Host-half change has no effect | Restart the `dsh web` process. Refreshing only reloads the client bundle. |
+| `SHARE_LAZY` | The share page declares lazy-loaded messages and the JSON snapshot returned none. Usually a mobile/`x…` share that the server refuses without a session; not supported. |
+| `SHARE_NOT_FOUND` | Share deleted, expired, made private, or the id is wrong. |
+| Session shows "Untitled" in the sidebar | The projection cache was not warmed (older builds). Use a current version; the plugin warms it after import. |
+
+## License and credits
+
+MIT — see [LICENSE](LICENSE). `lib/formats.js` and `lib/persistence.js` are ported from
+[deepseek-web-import](https://www.npmjs.com/package/deepseek-web-import) v0.2.1
+(Copyright (c) 2026 wpc0323, MIT); see [NOTICE.md](NOTICE.md). Everything else is written for this plugin.
+
+This is an unofficial community plugin. It is not affiliated with DeepSeek or ByteDance.

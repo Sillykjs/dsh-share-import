@@ -45,7 +45,10 @@
 | `lib/client.js:25` / `:27` / `:528` | client 半：`NS`、`PANEL_ID = 'share-import'`、`apply`（挂 `settings.section` + `sidebar.panellist` + `main` 三个槽） |
 | `test/smoke.mjs` | 纯逻辑自测（默认不联网）；设 `DSH_SHARE_LINK` 或传参才做真实拉取 |
 | `PLAN.md` | 设计记录（R3）。改语义先改这里，再改代码 |
-| `docs/*.png` | 设置页/开关截图存档 |
+| `docs/panel.png` | 导入面板截图（README 两份都通过 raw.githubusercontent 绝对地址引用，不进 npm 包） |
+| `README.md` / `README.zh-CN.md` | 面向用户的双语说明；英文为主，中文版互链。改使用方式两份都要同步 |
+| `CHANGELOG.md` / `NOTICE.md` | 发布记录（Keep a Changelog）／上游移植归属与 MIT 全文 |
+| `package.json` / `.github/workflows/ci.yml` | 包元数据（`dsh.bundle.patch`、`dsh.client.platform`、`files`、`engines`）／CI（node 20/22/24 跑 check + smoke） |
 
 ## 数据流
 
@@ -120,7 +123,8 @@ rm -rf /tmp/dsh-verify-home
 
 - [ ] 八个 `lib/*.js` 全部 `node --check` 通过；`node test/smoke.mjs` 打印 `ALL CHECKS PASSED`（联网断言可选，需自备链接）。
 - [ ] 改了 `lib/client.js` 或 UI 行为：在隔离实例里用 Playwright 跑一遍（入口可见、预览、导入、开关、刷新后仍存在），确认 console 无本插件相关错误。
-- [ ] 改了语义/使用方式：同步 `README.md`「使用」节与 `PLAN.md`「12. 实现状态」。
+- [ ] 改了语义/使用方式：同步 `README.md` 与 `README.zh-CN.md`（两份都要改）、`PLAN.md`「12. 实现状态」、`CHANGELOG.md`（发版时）。
+- [ ] 发版/打包：`npm pack --dry-run` 里应含 `lib/`、`cordis.patch.yml`、双语 README、`CHANGELOG.md`、`NOTICE.md`、`LICENSE`；版本号、`CHANGELOG.md`、git tag（`v0.2.0`）三者一致。
 - [ ] 线上核对：`/plugins/events` 里本包 rev 已变化，抓下的 bundle 含新字符串。**改了 host 半或 client bundle 后 3080 必须重启 `dshweb.service` 才生效**（DSH 无进程内重载包代码的入口，`dsh plugin` 只转发 pnpm）；重启会中断用户会话，先问用户。重启前 3080 仍跑旧版，别据此判断代码没生效。
 - [ ] 不留 3099 实例、不留 `/tmp/dsh-verify-home`。
 - [ ] 不把 `~/.dsh` 的凭据、会话文件、profile 内容拷进仓库。

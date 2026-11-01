@@ -1,7 +1,7 @@
 {
   "name": "dsh-share-import",
-  "version": "0.1.0",
-  "description": "Import a public chat.deepseek.com share link into a DSH workspace as a static, resumable session.",
+  "version": "0.2.0",
+  "description": "Import a public DeepSeek or Doubao chat share link into a DSH workspace as a static, resumable session.",
   "type": "module",
   "license": "MIT",
   "main": "./lib/index.js",
@@ -14,8 +14,18 @@
     "lib",
     "cordis.patch.yml",
     "README.md",
+    "README.zh-CN.md",
+    "CHANGELOG.md",
+    "NOTICE.md",
     "LICENSE"
   ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "node --check lib/index.js && node --check lib/share.js && node --check lib/doubao.js && node --check lib/errors.js && node --check lib/events.js && node --check lib/formats.js && node --check lib/persistence.js && node --check lib/client.js",
+    "test": "node test/smoke.mjs"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
@@ -28,8 +38,12 @@
     "dsh",
     "dsh-plugin",
     "deepseek",
+    "deepseek-harness",
+    "doubao",
+    "share",
     "import",
-    "session"
+    "session",
+    "chat-archive"
   ],
   "repository": {
     "type": "git",
