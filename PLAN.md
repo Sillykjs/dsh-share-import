@@ -160,5 +160,7 @@ M1–M3 全部落地并验证，方案里 R3 承诺的行为逐条实测：
 | M3 可用性 | 完成 | 预览/工作区下拉/去重（`ALREADY_IMPORTED` + 强制再导）/中英文案/8 类错误码均有提示 |
 | M4 可选开关 | **未做（按用户 m00277 撤销）** | 导入保持静止，不写 `plan/mode`、`sandbox/mode` |
 | M5 导航入口 | 完成 | `sidebar.panellist` 第三个入口「分享导入」+ `main` 主面板页 + 「回到对话」 |
+| M6 双来源（豆包） | 完成 | `parseShareLink` 返回 `{source:'deepseek'\|'doubao', id}`，接受 `https://[www.]doubao.com/thread/<id>`；新增 `lib/doubao.js` 解析分享页 SSR HTML 的 `data-fn-args`（`share_info` + `message_snapshot`，`user_type` 1/2 → user/assistant，`fragments` `REQUEST`/`RESPONSE`，`inserted_at` 由 `ext.create_time_ms` 或 `msg_update_time_ms` 换算成秒）；`lib/share.js` 增加 HTML 抓取与 `readShareDocument` 分发（`ShareError` 移到 `lib/errors.js`，share.js 继续 re-export）；去重键改为 `source:id` |
+| M7 豆包 JSON 快照路由 | 完成 | 用户反馈「豆包全都提示要登录」后查明：`x` 开头的移动端分享在网页端只懒加载消息，SSR 页拿不到消息。改为优先走公开 JSON 快照接口——普通 ID `POST /alice/message/share/get`，`x` 分享 `POST /im/message/share/get`（`need_bot_info`/`need_lazy_load_big_message`/`need_lazy_load_thread_msg` 三个标志），失败再退回 SSR HTML；新增 `doubaoSnapshotRequest`/`readDoubaoSnapshot`/`readDoubaoPage`，消息块兼容 `content_block`、`content` 字符串包块、对象形态 `{text}`，`index_in_conv` 排序、秒级 `create_time`；三条真实链接（含 `x` 分享）实测通过；`SHARE_LAZY` 只在页面声明懒加载且 JSON 也失败时出现 |
 
 其它已验证的实现细节：投影缓存预热（`sessionProjectionCache.coldSnapshot`）让侧边栏不再显示 `Untitled`；成功后客户端 `sessions.refresh()` 免 F5；插件已装入真实 profile 并热载 host 半。
